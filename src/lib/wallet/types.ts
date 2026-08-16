@@ -18,6 +18,15 @@ export interface WalletSigner {
    * different identity and silently strand their funds. See `reconnectWallet`.
    */
   kind: WalletKind;
+  /**
+   * Which passkey produced this signer, base64url. Passkeys only.
+   *
+   * Remembered at sign-in and pinned on every later assertion. Without it WebAuthn is free to pick
+   * any discoverable credential for the site, and a second passkey derives a different key, a
+   * different address and a different shielded balance — all of them valid, none of them the one
+   * the session was built on.
+   */
+  credentialId?: string;
   signMessage(message: string): Promise<string>;
   /**
    * The underlying viem account, when the signer holds the key locally.

@@ -195,7 +195,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       // key re-acquires it through this preference, so writing it optimistically
       // would leave a failed MetaMask attempt pointing the passkey user at the
       // wrong wallet — and a wrong wallet means a different shielded identity.
-      rememberWallet({ kind: signer.kind, ...(remember?.rdns ? { rdns: remember.rdns } : {}) });
+      rememberWallet({
+        kind: signer.kind,
+        ...(remember?.rdns ? { rdns: remember.rdns } : {}),
+        // Which passkey this was. Every later re-acquisition pins to it, so a device with two
+        // passkeys can no longer unlock into a different identity than it signed in with.
+        ...(signer.credentialId ? { credentialId: signer.credentialId } : {}),
+      });
       setUser(result.user);
       setWalletSession(signer.kind === 'injected');
       setStatus('authenticated');

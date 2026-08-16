@@ -190,7 +190,7 @@ const PRF_STORES =
  * Secrets are zeroed as soon as they are consumed; only the signing session
  * (which holds the key in memory and can be ended) survives.
  */
-function signerFromPrf(prfOutput: Uint8Array): WalletSigner {
+function signerFromPrf(prfOutput: Uint8Array, credentialId?: string): WalletSigner {
   let seed: Uint8Array | null = null;
   try {
     seed = mnemonicToSeedSync(entropyToMnemonic(prfOutput, wordlist));
@@ -205,6 +205,7 @@ function signerFromPrf(prfOutput: Uint8Array): WalletSigner {
     return {
       address: getEvmAddress(session.publicKey),
       kind: 'passkey',
+      credentialId,
       // Exposed for the shielded-pool deposit flow, which needs EIP-712 signing
       // and a real approval transaction. Signing through it never prompts the
       // passkey again — the session already holds the key.
@@ -379,7 +380,7 @@ export async function createPasskeyWallet(
   // The good case, and the quiet one: the authenticator evaluated the salt during creation, so
   // there is a key already and the user saw a single prompt.
   const evaluated = toPrfBytes(prf?.results?.first);
-  if (evaluated) return signerFromPrf(evaluated);
+  if (evaluated) return signerFromPrf(evaluated, toBase64Url(new Uint8Array(credential.rawId)));
 
   const response = credential.response as AuthenticatorAttestationResponse;
   const transports =
@@ -397,7 +398,7 @@ export async function createPasskeyWallet(
       },
       prfSalt: salt,
     });
-    return signerFromPrf(prfOutput);
+    return signerFromPrf(prfOutput, toBase64Url(new Uint8Array(credential.rawId)));
   } catch (err) {
     if (isCancellation(err)) throw new WalletError('CANCELLED', 'Request cancelled.', { cause: err });
     throw noKeyFromPasskey(store, err);
@@ -405,13 +406,25 @@ export async function createPasskeyWallet(
 }
 
 /** Sign in with an existing passkey (returning user, any device). */
-export async function connectPasskeyWallet(): Promise<WalletSigner> {
+/**
+ * @param credentialId Restrict the assertion to one passkey, base64url.
+ *
+ * Supplied on every re-acquisition, and the reason is a real failure: left open, WebAuthn may pick
+ * any discoverable credential for this site. Somebody with two passkeys would sign in under one
+ * and unlock under the other, and every derived thing — market accounts, notes, balances — would
+ * differ. Nothing errors, because both identities are perfectly valid; the money is simply
+ * somewhere the screen is not looking.
+ */
+export async function connectPasskeyWallet(credentialId?: string): Promise<WalletSigner> {
   if (!isPasskeySupported()) {
     throw new WalletError('UNSUPPORTED', 'Passkeys are not supported in this browser.');
   }
   try {
-    const { prfOutput } = await getPasskeyPrfOutput({ rpId: passkeyRpId() });
-    return signerFromPrf(prfOutput);
+    const result = await getPasskeyPrfOutput({
+      rpId: passkeyRpId(),
+      ...(credentialId ? { credential: { credentialId } } : {}),
+    });
+    return signerFromPrf(result.prfOutput, result.credentialId ?? credentialId);
   } catch (err) {
     throw toPasskeyError(err);
   }

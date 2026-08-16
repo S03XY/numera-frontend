@@ -27,6 +27,14 @@ export interface WalletPreference {
   kind: WalletKind;
   /** EIP-6963 rdns of the chosen extension, for `kind: 'injected'`. */
   rdns?: string;
+  /**
+   * Which passkey signed in, base64url. Pinned on every later assertion.
+   *
+   * Not a secret: a credential id is a public handle that identifies a passkey to the browser and
+   * cannot be used to sign anything. Storing it is what stops WebAuthn picking a *different* one
+   * later and silently opening a second, empty identity.
+   */
+  credentialId?: string;
 }
 
 /**
@@ -53,7 +61,12 @@ export function readWalletPreference(): WalletPreference | null {
     const kind = (parsed as { kind?: unknown })?.kind;
     if (kind !== 'passkey' && kind !== 'injected') return null;
     const rdns = (parsed as { rdns?: unknown }).rdns;
-    return { kind, ...(typeof rdns === 'string' ? { rdns } : {}) };
+    const credentialId = (parsed as { credentialId?: unknown }).credentialId;
+    return {
+      kind,
+      ...(typeof rdns === 'string' ? { rdns } : {}),
+      ...(typeof credentialId === 'string' ? { credentialId } : {}),
+    };
   } catch {
     return null;
   }
@@ -122,7 +135,8 @@ export async function reconnectWallet(expect?: string | null): Promise<WalletSig
     return signer;
   }
 
-  const signer = await connectPasskeyWallet();
+  // Pinned to the passkey that signed in, so the browser offers no choice to get wrong.
+  const signer = await connectPasskeyWallet(preference?.credentialId);
 
   /*
     The same check as the injected path, and it was missing here.
