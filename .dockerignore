@@ -1,0 +1,16 @@
+node_modules
+.next
+.git
+coverage
+*.log
+Dockerfile
+.dockerignore
+
+# The locally trusted dev certificate holds a private key.
+certificates
+
+# Every env file except the one the production build reads. .env.local carries
+# localhost URLs and would silently win over .env.production if it got in.
+.env
+.env.*
+!.env.production

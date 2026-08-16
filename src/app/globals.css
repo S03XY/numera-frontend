@@ -1,0 +1,899 @@
+@import 'tailwindcss';
+
+/* ————————————————————————————————————————————————————————————————
+   NUMERA · the private financial house
+   Editorial, terminal-grade, professional. One raspberry-crimson light
+   source against graphite (dark) or bone (light). Zero border-radius —
+   the house is drawn with hairlines, not with rounded corners.
+   Tokens are inherited from numera.trade so the app reads as one product.
+   ———————————————————————————————————————————————————————————————— */
+
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #0b0b0e;
+  --bg-2: #121218;
+  --bg-3: #17171e;
+
+  --text: #eaeaee;
+  --text-dim: #96959f;
+  --text-mute: #56555f;
+
+  --accent: #c02050;
+  --accent-bright: #ee4d75;
+  --accent-dim: rgba(192, 32, 80, 0.38);
+  --accent-wash: rgba(192, 32, 80, 0.06);
+  --accent-glow: rgba(192, 32, 80, 0.4);
+
+  --line: rgba(234, 234, 238, 0.08);
+  --line-2: rgba(234, 234, 238, 0.16);
+
+  /* Directional signal for P&L only. Deliberately lower chroma than the
+     crimson so it never competes with the brand's single light source. */
+  --pos: #3fbf92;
+  --neg: #ee4d75;
+
+  /* Outcome ramp. Index 0 carries the accent; the rest step down through the
+     text scale. One hue, four intensities — never a second colour. */
+  --o-0: #ee4d75;
+  --o-1: #b9b8c4;
+  --o-2: #7e7d89;
+  --o-3: #56555f;
+  --o-4: #3c3b44;
+
+  --plate: rgba(255, 255, 255, 0.014);
+  --plate-hover: var(--accent-wash);
+  --grain-opacity: 0.035;
+  --shadow-lift: 0 24px 60px -36px var(--accent-glow);
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+
+  /* Bone, not paper-white: the cool cast keeps it a sibling of the graphite. */
+  --bg: #fbfbfc;
+  --bg-2: #f3f3f5;
+  --bg-3: #ebebee;
+
+  --text: #101014;
+  --text-dim: #56555f;
+  --text-mute: #8b8a94;
+
+  /* Deepened so the accent clears AA on bone (6.4:1) — #ee4d75 would not. */
+  --accent: #b81d4b;
+  --accent-bright: #c02050;
+  --accent-dim: rgba(184, 29, 75, 0.34);
+  --accent-wash: rgba(184, 29, 75, 0.045);
+  --accent-glow: rgba(184, 29, 75, 0.28);
+
+  --line: rgba(16, 16, 20, 0.1);
+  --line-2: rgba(16, 16, 20, 0.2);
+
+  --pos: #17805c;
+  --neg: #c02050;
+
+  --o-0: #b81d4b;
+  --o-1: #4a4954;
+  --o-2: #7c7b86;
+  --o-3: #a3a2ac;
+  --o-4: #c4c3cb;
+
+  --plate: rgba(16, 16, 20, 0.014);
+  --plate-hover: var(--accent-wash);
+  --grain-opacity: 0.02;
+  --shadow-lift: 0 24px 60px -40px var(--accent-glow);
+}
+
+/* Tailwind utilities resolve through the vars, so a single attribute flip on
+   <html> re-themes everything with no class churn in components. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-2: var(--bg-2);
+  --color-bg-3: var(--bg-3);
+
+  --color-ink: var(--text);
+  --color-ink-dim: var(--text-dim);
+  --color-ink-mute: var(--text-mute);
+
+  --color-accent: var(--accent);
+  --color-accent-bright: var(--accent-bright);
+  --color-accent-dim: var(--accent-dim);
+  --color-accent-wash: var(--accent-wash);
+
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+
+  --color-pos: var(--pos);
+  --color-neg: var(--neg);
+
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+:root {
+  --gutter: clamp(16px, 4.5vw, 64px);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html {
+  background: var(--bg);
+  scroll-behavior: smooth;
+  /*
+    A sticky masthead and in-page scrolling do not agree by default: `scrollIntoView` on the
+    funding panel lands it *underneath* the header, so the trader is sent to a heading they
+    cannot see. One declaration fixes every anchor and every programmatic scroll in the app.
+  */
+  scroll-padding-top: 5rem;
+}
+
+body {
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-sans), ui-sans-serif, system-ui;
+  overflow-x: hidden;
+  /*
+    The default blue-grey tap flash is the one piece of platform chrome that survives the theme,
+    and on a graphite surface it reads as a rendering fault. Replaced with the house wash rather
+    than removed outright — a tap with no acknowledgement feels broken on a slow connection.
+  */
+  -webkit-tap-highlight-color: var(--accent-wash);
+  /* Themes cross-fade instead of snapping. */
+  transition:
+    background-color 0.4s var(--ease),
+    color 0.4s var(--ease);
+}
+
+::selection {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Film grain — fixed, cheap, and the reason flat surfaces read as material. */
+.grain::before {
+  content: '';
+  position: fixed;
+  inset: -50%;
+  z-index: 60;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  opacity: var(--grain-opacity);
+}
+
+:focus-visible {
+  outline: 1.5px solid var(--accent-dim);
+  outline-offset: 3px;
+}
+
+@layer components {
+  /* ————————————————————— type ————————————————————— */
+
+  /*
+    `max()` rather than a bare gutter, because a notched phone in landscape puts the display
+    cutout inside the first 44px of the viewport — a 16px gutter there lays the first column of
+    every card under the notch. On every other device the inset is 0 and this is exactly the
+    gutter it was before.
+  */
+  .shell {
+    @apply mx-auto w-full max-w-[1240px];
+    padding-left: max(var(--gutter), env(safe-area-inset-left));
+    padding-right: max(var(--gutter), env(safe-area-inset-right));
+  }
+
+  .display {
+    font-family: var(--font-fraunces), Georgia, serif;
+    letter-spacing: -0.02em;
+    font-weight: 400;
+  }
+
+  .mono {
+    font-family: var(--font-jetbrains), ui-monospace, Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Every number in the product. Columns must not jitter as prices tick. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  .kicker {
+    font-family: var(--font-jetbrains), ui-monospace, Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .folio {
+    font-family: var(--font-jetbrains), ui-monospace, Menlo, monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-mute);
+  }
+
+  .h-hero {
+    font-family: var(--font-fraunces), Georgia, serif;
+    font-size: clamp(34px, 7vw, 76px);
+    line-height: 1.04;
+    letter-spacing: -0.025em;
+    font-weight: 400;
+    color: var(--text);
+  }
+
+  .h-sec {
+    font-family: var(--font-fraunces), Georgia, serif;
+    font-size: clamp(26px, 3.6vw, 40px);
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+    font-weight: 400;
+  }
+
+  .h-card {
+    font-family: var(--font-fraunces), Georgia, serif;
+    font-size: 16.5px;
+    line-height: 1.32;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--text);
+  }
+
+  .prose-serif {
+    font-family: var(--font-fraunces), Georgia, serif;
+    font-size: 17.5px;
+    line-height: 1.68;
+    font-weight: 300;
+    color: var(--text-dim);
+  }
+
+  .accent-word {
+    color: var(--accent-bright);
+  }
+
+  /* ————————————————————— surfaces ————————————————————— */
+
+  .rule {
+    height: 1px;
+    background: var(--line);
+  }
+
+  /* The card of the house: a hairline plate that lifts into the light. */
+  .plate {
+    position: relative;
+    border: 1px solid var(--line);
+    background: var(--plate);
+    transition:
+      border-color 0.4s var(--ease),
+      transform 0.4s var(--ease),
+      box-shadow 0.4s var(--ease),
+      background 0.4s var(--ease);
+  }
+
+  .plate-interactive:hover {
+    border-color: var(--accent-dim);
+    background: var(--plate-hover);
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lift);
+  }
+
+  /*
+    An opaque surface that matches the plate it sits inside.
+
+    For sticky headers, which have to hide the rows passing underneath and therefore cannot be
+    transparent. `--plate` is a 1.4% white wash *over* the page background, so a sticky header
+    painted `var(--bg)` is a shade darker than the plate around it and reads as a grey band across
+    the panel — which is exactly how the trade tape's header looked.
+
+    Reproduced by compositing rather than by picking a hex: a flat colour would have to be chosen
+    twice, once per theme, and would drift the moment either token moved. Two layers of the same
+    two variables give the identical result in both themes, for free.
+  */
+  .surface-plate {
+    background-color: var(--bg);
+    background-image: linear-gradient(var(--plate), var(--plate));
+  }
+
+  .seal {
+    font-family: var(--font-jetbrains), ui-monospace, Menlo, monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-mute);
+    border: 1px solid var(--line);
+    padding: 3px 7px;
+    white-space: nowrap;
+    transition:
+      color 0.4s var(--ease),
+      border-color 0.4s var(--ease);
+  }
+
+  .plate-interactive:hover .seal {
+    color: var(--accent-bright);
+    border-color: var(--accent-dim);
+  }
+
+  /* ————————————————————— controls ————————————————————— */
+
+  .btn {
+    font-family: var(--font-jetbrains), ui-monospace, Menlo, monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    white-space: nowrap;
+    border: 1px solid transparent;
+    transition:
+      color 0.25s var(--ease),
+      background 0.25s var(--ease),
+      border-color 0.25s var(--ease),
+      opacity 0.25s var(--ease);
+  }
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--accent-bright);
+    border-color: var(--accent-bright);
+  }
+
+  /* Directional primaries, for the one place a button IS a direction: the trade
+     ticket's commit. `--bg` rather than white for the label, because --pos is a
+     light green on dark and a dark green on bone — the background colour is the
+     only one guaranteed to contrast with it in both themes.
+
+     Hover mixes toward --text, which lightens on dark and darkens on bone, so a
+     single rule reads as "pressed" either way. */
+  .btn-pos {
+    background: var(--pos);
+    border-color: var(--pos);
+    color: var(--bg);
+  }
+  .btn-pos:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--pos) 86%, var(--text));
+    border-color: color-mix(in srgb, var(--pos) 86%, var(--text));
+  }
+
+  .btn-neg {
+    background: var(--neg);
+    border-color: var(--neg);
+    color: var(--bg);
+  }
+  .btn-neg:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--neg) 86%, var(--text));
+    border-color: color-mix(in srgb, var(--neg) 86%, var(--text));
+  }
+
+  .btn-ghost {
+    border-color: var(--line-2);
+    color: var(--text);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    border-color: var(--accent-dim);
+    color: var(--accent-bright);
+    background: var(--accent-wash);
+  }
+
+  .btn-quiet {
+    color: var(--text-dim);
+  }
+  .btn-quiet:hover:not(:disabled) {
+    color: var(--text);
+  }
+
+  /*
+    16px on a phone, and it is not a style choice.
+
+    Mobile Safari zooms the page whenever a focused input's font-size is under 16px, and it does
+    not zoom back out on blur. Every money field in this product is a `.field` — so tapping the
+    amount box on a market threw the page to 1.3×, pushed the quote and the Buy button off screen,
+    and left the trader pinching to get back. 16px is the threshold; the 40px height goes to 44 at
+    the same time, which is the smallest touch target worth shipping next to a balance.
+
+    The desktop figures are restored at `sm`, where the pointer is a mouse and the tighter
+    instrument look is the right one.
+  */
+  .field {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--line-2);
+    color: var(--text);
+    font-size: 16px;
+    padding: 0 12px;
+    height: 44px;
+    caret-color: var(--accent-bright);
+    transition: border-color 0.3s var(--ease);
+  }
+  @media (min-width: 640px) {
+    .field {
+      font-size: 14px;
+      height: 40px;
+    }
+  }
+  .field:focus {
+    outline: none;
+    border-color: var(--accent-dim);
+  }
+  .field::placeholder {
+    color: var(--text-mute);
+  }
+  /* The browser's yellow autofill would break the theme entirely. */
+  .field:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px var(--bg) inset;
+    -webkit-text-fill-color: var(--text);
+    transition: background-color 9999s ease-in-out 0s;
+  }
+
+  /* An underline that grows in from the left — never a bare text-decoration. */
+  .link-rule {
+    position: relative;
+    display: inline-block;
+  }
+  .link-rule::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -3px;
+    height: 1px;
+    background: currentColor;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.38s var(--ease);
+  }
+  .link-rule:hover::after,
+  .link-rule:focus-visible::after {
+    transform: scaleX(1);
+  }
+
+  /* ————————————————————— market instruments ————————————————————— */
+
+  /* The odds bar: crimson pressure against graphite, with a slow shine. */
+  .odds {
+    position: relative;
+    height: 34px;
+    border: 1px solid var(--line-2);
+    background: color-mix(in srgb, var(--text) 2%, transparent);
+    overflow: hidden;
+  }
+  .odds-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    background: linear-gradient(90deg, var(--accent-dim), var(--accent-wash));
+    border-right: 1px solid var(--accent-bright);
+    box-shadow: 0 0 22px -2px var(--accent-dim);
+    transition: width 0.6s var(--ease);
+  }
+  .odds-fill::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--text) 12%, transparent),
+      transparent
+    );
+    transform: translateX(-100%);
+    animation: oddsSweep 2.8s var(--ease) infinite;
+  }
+
+  /* Stacked probability distribution — one segment per outcome. */
+  .dist {
+    display: flex;
+    height: 3px;
+    width: 100%;
+    overflow: hidden;
+    background: var(--line);
+  }
+  .dist-seg {
+    height: 100%;
+    transition: width 0.6s var(--ease);
+  }
+
+  .status-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--accent-bright);
+    box-shadow: 0 0 12px 1px var(--accent-dim);
+    animation: dotPulse 3.2s ease-in-out infinite;
+  }
+  .status-dot-idle {
+    animation: none;
+    background: var(--text-mute);
+    box-shadow: none;
+  }
+
+  /* ————————————————————— motion ————————————————————— */
+
+  /*
+    What is left moves for a reason: a value that just changed, and a placeholder that is waiting.
+    The scroll entrances and the decrypting-ciphertext loaders are gone — on a board of live
+    prices they meant the first thing the eye tracked was the animation rather than the odds.
+  */
+
+  .flash-up {
+    animation: flashUp 0.7s var(--ease);
+  }
+  .flash-down {
+    animation: flashDown 0.7s var(--ease);
+  }
+
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--line) 25%,
+      color-mix(in srgb, var(--text) 9%, transparent) 50%,
+      var(--line) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.4s linear infinite;
+  }
+
+  /* ————————————————————— the loop ————————————————————— */
+
+  /*
+    One gesture, in two halves: the wait draws a loop, and the bet landing closes it.
+    See `components/ui/Waiting.tsx`, which owns both shapes.
+
+    What used to sit here was ninety scrambling hex characters over three lines. The idea was
+    right — a shielded product should look like one while it works — but at that length nobody
+    reads ciphertext, they read a paragraph of nonsense, and the eye keeps trying to parse it.
+    Same claim, one mark, nothing to read.
+
+    Pure CSS, deliberately. The old treatment drove every instance from a module-level ticker
+    through `useSyncExternalStore`, because sixty market tiles would otherwise have been sixty
+    timers. This needs no timer at all: sixty of these cost sixty compositor animations and zero
+    React renders.
+  */
+
+  .trace-track {
+    fill: none;
+    stroke: var(--line-2);
+    stroke-width: 2;
+  }
+
+  /*
+    The arc only ever grows, so it is a real progress reading rather than decoration. 128 is the
+    perimeter of the 32-unit square it is drawn on; the offset is set inline from `progress`.
+  */
+  .trace-arc {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2;
+    stroke-dasharray: 128;
+    transition: stroke-dashoffset 0.5s var(--ease);
+  }
+
+  /*
+    And the comet keeps circling regardless of progress, which is the part that matters: a private
+    bet can sit in one stage for a minute, and a bar that has not moved in that long reads as a
+    hang no matter how honest it is.
+  */
+  .trace-comet {
+    fill: none;
+    stroke: var(--accent-bright);
+    stroke-width: 2;
+    stroke-linecap: square;
+    /* One eighth of the loop, lit. */
+    stroke-dasharray: 16 112;
+    filter: drop-shadow(0 0 4px var(--accent-glow));
+    animation: cometRun 1.5s linear infinite;
+  }
+
+  /*
+    The padlock at the centre of the loop.
+
+    It is the same glyph that sits on every "Private" label in the product, so the loading state
+    and the promise it is making are literally the same object rather than two things that happen
+    to agree.
+  */
+  .trace-lock {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /*
+      Dim crimson, not ink.
+
+      The base was `--line-2` at first, which is nearly invisible, and that made the gloss a
+      *reveal*: the lock only existed where the light happened to be, and the band's edge read as a
+      hard cut across a shape that was otherwise not there. A gloss is a highlight travelling over
+      something already visible, so the lock is always legible and the band only brightens it.
+    */
+    color: color-mix(in srgb, var(--accent) 60%, transparent);
+  }
+
+  /*
+    And the gloss: a lit copy of the same glyph, revealed through a band travelling the diagonal.
+    Masked rather than moved, so the lock itself never shifts — a lock that slides around is a
+    lock coming loose, which is the opposite of what this is for.
+  */
+  .trace-lock-lit {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-bright);
+    /*
+      135deg puts the band perpendicular to its own travel, so it crosses rather than slides.
+
+      The width is the part that has to be right, and it is a product of two numbers rather than
+      one: the opaque core spans (58 - 42)% of a mask sized at 200%, so it covers about a third of
+      the mark. An earlier pass had a 20% core on a 280% mask, which works out at 56% of the mark:
+      more than half the lock lit at once, with the band's edge cutting across the body as a hard
+      step. It read as a second lock offset behind the first rather than as light passing over one.
+    */
+    -webkit-mask-image: linear-gradient(135deg, transparent 42%, #000 50%, transparent 58%);
+    mask-image: linear-gradient(135deg, transparent 42%, #000 50%, transparent 58%);
+    -webkit-mask-size: 200% 200%;
+    mask-size: 200% 200%;
+    /*
+      Linear, and with a hold built into the keyframes rather than a shorter duration.
+
+      `--ease` is heavily front-loaded, which is right for something arriving and wrong for a
+      gloss: the band whipped across in the first fifth of the cycle and then crawled, so it read
+      as stalled for most of every repeat. Constant travel, then a pause with the band parked off
+      the glyph, is what makes it read as a sweep that happens every couple of seconds rather than
+      as a light that is always on.
+    */
+    animation: lockGloss 2.4s linear infinite;
+  }
+
+  /* ————————————————————— the loop closes ————————————————————— */
+
+  /*
+    The bet landed. The wait leaves the loop three quarters drawn (see `SETTLED_AT` in
+    `Waiting.tsx`), so this is not a new animation arriving over the old one: it is the same loop
+    finishing. The last quarter snaps shut, the join sparks, the mark fills, and the panel throws
+    the light off its edge.
+  */
+  .circuit-arc {
+    fill: none;
+    stroke: var(--accent-bright);
+    stroke-width: 2;
+    stroke-dasharray: 128;
+    /* Exactly where the wait left it. */
+    stroke-dashoffset: 32;
+    animation: circuitClose 360ms var(--ease) both;
+  }
+
+  .circuit-spark {
+    fill: none;
+    stroke: var(--accent-bright);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-dasharray: 8 120;
+    stroke-dashoffset: 32;
+    filter: drop-shadow(0 0 6px var(--accent-glow));
+    animation: circuitSpark 360ms linear both;
+  }
+
+  /* The lock the loop was drawn around, lighting up as it shuts. */
+  .circuit-lock {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--line-2);
+    animation: lockShut 460ms var(--ease) 300ms both;
+  }
+
+  .circuit-panel {
+    position: relative;
+    animation: discharge 900ms var(--ease) 330ms both;
+  }
+
+  /*
+    The pulse off the border.
+
+    A copy of the panel's own edge, expanding away and fading, timed to leave as the loop shuts.
+    Two of them staggered rather than one, because a single expanding box reads as a box and two
+    read as a shock. Delay is set inline, per ring.
+
+    Nothing above this may clip: the rings finish outside the panel they came from.
+  */
+  .circuit-pulse {
+    position: absolute;
+    inset: -1px;
+    border: 1px solid var(--accent-bright);
+    pointer-events: none;
+    animation: circuitPulse 760ms var(--ease) both;
+  }
+
+  /* Receipt copy arriving behind the discharge. Delay is set inline, per row. */
+  .settle-in {
+    opacity: 0;
+    transform: translateY(6px);
+    animation: settleIn 420ms var(--ease) both;
+  }
+}
+
+@keyframes cometRun {
+  to {
+    stroke-dashoffset: -128;
+  }
+}
+@keyframes circuitClose {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+/* The 0% frame deliberately does not restate the offset: omitting it makes the browser start from
+   whatever `.circuit-spark` declares, so the handoff number lives in exactly one place. */
+@keyframes circuitSpark {
+  0% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+/* Top left to bottom right, the direction light falls. Both ends park the band clear of the
+   glyph, so the pause really is a pause and not a highlight left sitting in a corner. */
+@keyframes lockGloss {
+  0% {
+    -webkit-mask-position: 150% 150%;
+    mask-position: 150% 150%;
+  }
+  /* Across in a little over a second, then parked for the rest of the cycle. */
+  46%,
+  100% {
+    -webkit-mask-position: -50% -50%;
+    mask-position: -50% -50%;
+  }
+}
+@keyframes lockShut {
+  0% {
+    color: var(--line-2);
+    transform: scale(0.86);
+  }
+  55% {
+    transform: scale(1.08);
+  }
+  100% {
+    color: var(--accent-bright);
+    transform: scale(1);
+  }
+}
+@keyframes circuitPulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.07);
+    opacity: 0;
+  }
+}
+@keyframes discharge {
+  0% {
+    box-shadow: 0 0 0 0 var(--accent-glow);
+    border-color: var(--accent-bright);
+  }
+  100% {
+    box-shadow: 0 0 0 24px transparent;
+    border-color: var(--accent-dim);
+  }
+}
+@keyframes settleIn {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes oddsSweep {
+  to {
+    transform: translateX(120%);
+  }
+}
+@keyframes dotPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@keyframes flashUp {
+  0% {
+    background-color: color-mix(in srgb, var(--pos) 22%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+@keyframes flashDown {
+  0% {
+    background-color: color-mix(in srgb, var(--neg) 22%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ————————————— reduced motion: a still photograph ————————————— */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  body {
+    transition: none;
+  }
+  .status-dot,
+  .odds-fill::after,
+  .flash-up,
+  .flash-down,
+  .skeleton,
+  .trace-comet,
+  .trace-lock-lit,
+  .circuit-panel,
+  .circuit-pulse {
+    animation: none;
+  }
+  /* The gloss IS the animation. Without it the lit copy would simply sit on top, fully opaque. */
+  .trace-lock-lit,
+  .circuit-pulse {
+    opacity: 0;
+  }
+  .plate-interactive:hover {
+    transform: none;
+  }
+
+  /*
+    The one-shots use `both`, so simply switching them off would leave each element on its FIRST
+    keyframe, which for most of these is invisible. A bet that landed would show an empty panel.
+    So the finished state is restated by hand rather than inherited.
+  */
+  .circuit-arc,
+  .circuit-spark {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .circuit-spark {
+    opacity: 0;
+  }
+  .settle-in {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  /* Must end lit, not dim: this is the whole of the visual confirmation. */
+  .circuit-lock {
+    animation: none;
+    color: var(--accent-bright);
+    transform: none;
+  }
+  .trace-arc {
+    transition: none;
+  }
+}
