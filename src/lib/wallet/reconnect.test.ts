@@ -164,6 +164,67 @@ describe('reconnectWallet', () => {
       await expect(reconnectWallet()).resolves.toBeTruthy();
     });
 
+    it('refuses a passkey that opens a different account (REGRESSION)', async () => {
+      /*
+        This check existed for injected wallets and not for passkeys, and the gap was reachable.
+
+        More than one passkey can be registered for a domain — a second device, a re-registration,
+        a password manager duplicate — and each derives a different key and therefore a different
+        address. The browser chooses which one to use. Nothing downstream can tell: the derived
+        account is perfectly valid, so the faucet and every deposit address themselves to an
+        account the user has never funded, while the wallet screen keeps showing the funded one.
+
+        Reported as "I sent it 1 MON and it still says I have none".
+      */
+      rememberWallet({ kind: 'passkey' });
+      passkey.mockResolvedValue({
+        address: '0x3333333333333333333333333333333333333333',
+        kind: 'passkey' as const,
+        signMessage: async () => '0x',
+      });
+
+      await expect(reconnectWallet(signedIn)).rejects.toMatchObject({ code: 'WRONG_ACCOUNT' });
+    });
+
+    it('names both accounts when a passkey opens the wrong one (negative)', async () => {
+      rememberWallet({ kind: 'passkey' });
+      passkey.mockResolvedValue({
+        address: '0x3333333333333333333333333333333333333333',
+        kind: 'passkey' as const,
+        signMessage: async () => '0x',
+      });
+
+      await expect(reconnectWallet(signedIn)).rejects.toThrow(/0x3333/);
+      await expect(reconnectWallet(signedIn)).rejects.toThrow(/0x1111/);
+    });
+
+    it('zeroes the key of a passkey it refuses (negative)', async () => {
+      // The signer holds a live spending key. Refusing without ending its session would leave one
+      // in memory for an account the user is not signed in as.
+      rememberWallet({ kind: 'passkey' });
+      const disconnect = vi.fn();
+      passkey.mockResolvedValue({
+        address: '0x3333333333333333333333333333333333333333',
+        kind: 'passkey' as const,
+        signMessage: async () => '0x',
+        disconnect,
+      });
+
+      await expect(reconnectWallet(signedIn)).rejects.toBeTruthy();
+      expect(disconnect).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns the passkey signer when it opens the signed-in account (positive)', async () => {
+      rememberWallet({ kind: 'passkey' });
+      passkey.mockResolvedValue({
+        address: signedIn,
+        kind: 'passkey' as const,
+        signMessage: async () => '0x',
+      });
+
+      await expect(reconnectWallet(signedIn)).resolves.toMatchObject({ address: signedIn });
+    });
+
     it('does not retry with a picker after refusing a switched account (negative)', async () => {
       // The helpful-looking recovery is the expensive one. Reopening the account picker here
       // would let somebody grant the wrong account into a session that is mid unlock, and the

@@ -110,7 +110,7 @@ export function Wallet() {
       // Only the two that move the shielded balance. The faucet moves the PUBLIC one, and waiting
       // for a figure that was never going to change is a spinner that always times out.
       if (kind === 'deposit' || kind === 'withdraw') settling.expect(before);
-      await queryClient.invalidateQueries({ queryKey: ['unlink', 'balances'] });
+      await queryClient.invalidateQueries({ queryKey: ['pool'] });
       await queryClient.invalidateQueries({ queryKey: ['public'] });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong.';

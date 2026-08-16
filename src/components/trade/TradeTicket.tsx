@@ -577,7 +577,7 @@ export function TradeTicket({
       // into it. Both figures on the funding panel above are now stale.
       // `['execution', ...]` — see `MarketAccount.invalidateMoney`. The old key matched nothing.
       void queryClient.invalidateQueries({ queryKey: ['execution', 'market-account'] });
-      void queryClient.invalidateQueries({ queryKey: ['unlink', 'balances'] });
+      void queryClient.invalidateQueries({ queryKey: ['pool'] });
     } catch (err) {
       // A throw is the one path that reaches here with the prediction still standing and no toast
       // written. `submit` returns its failures rather than raising them, so this is the unexpected

@@ -122,7 +122,36 @@ export async function reconnectWallet(expect?: string | null): Promise<WalletSig
     return signer;
   }
 
-  return connectPasskeyWallet();
+  const signer = await connectPasskeyWallet();
+
+  /*
+    The same check as the injected path, and it was missing here.
+
+    A passkey derives its address from the PRF output of one specific credential. If more than one
+    passkey is registered for this domain — a second device enrolled, a re-registration after a
+    lost phone, a duplicate created by a password manager — the browser picks which one to use,
+    and a different credential is a different key and therefore a different address.
+
+    Nothing about that is detectable downstream. The derived account is perfectly valid, so the
+    faucet, the deposit and the shielded balance all address themselves to an account the user has
+    never funded and cannot see, while the wallet screen keeps showing the funded one from their
+    session. What that looks like in practice is "I sent it 1 MON and it still says I have none",
+    which is exactly right and impossible to act on.
+
+    Refusing names both addresses instead. The caller offers signing in again as the account the
+    passkey actually opened, which is a decision the person can make.
+  */
+  if (expect && signer.address.toLowerCase() !== expect.toLowerCase()) {
+    signer.disconnect?.();
+    throw new WalletError(
+      'WRONG_ACCOUNT',
+      `That passkey opens ${short(signer.address)}, but you are signed in as ${short(expect)}. ` +
+        'If you have more than one passkey for this site, choose the other one — or sign out and ' +
+        'sign in again with this one, which is a separate account with its own private balance.',
+    );
+  }
+
+  return signer;
 }
 
 function short(address: string): string {

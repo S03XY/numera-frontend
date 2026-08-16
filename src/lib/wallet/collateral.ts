@@ -85,9 +85,20 @@ export async function nativeBalance(owner: string): Promise<bigint> {
 async function assertCanPayGas(owner: `0x${string}`): Promise<void> {
   const balance = await publicClient().getBalance({ address: owner });
   if (balance > 0n) return;
+  /*
+    The address is named, and that is not decoration.
+
+    This used to say "the address shown above", which is true right up until the moment it is the
+    thing that has gone wrong: if the wallet hands back a different account than the session was
+    built on, the panel shows a funded address and this check reads an empty one. Pointing at the
+    screen then sends the user to fund an account that already has money, over and over.
+
+    Naming the account it actually looked at makes that visible in one glance.
+  */
   throw new FundingError(
-    'This account holds no MON, so it cannot pay for a transaction. Claim a small amount from ' +
-      "Monad's testnet faucet using the address shown above, then try again.",
+    `${owner} holds no MON, so it cannot pay for a transaction. If that is not the address shown ` +
+      "above, your wallet has opened a different account. Otherwise claim a little from Monad's " +
+      'testnet faucet and try again.',
   );
 }
 
@@ -106,6 +117,12 @@ export async function faucetCooldown(token: string, owner: string): Promise<bigi
  *
  * Costs gas, so that address needs a little native MON first. The contract
  * rate-limits per address, so a tester cannot mint enough to distort the books.
+ *
+ * Resolves once the claim is **mined**, not once it is broadcast. That distinction is the whole
+ * difference between a working button and a broken-looking one: the caller refetches balances the
+ * moment this returns, and a transaction that is only in the mempool has moved nothing yet. So the
+ * figure came back identical, the toast said the collateral had been claimed, and the two
+ * contradicted each other until the user reloaded the page.
  */
 export async function claimTestTokens(params: {
   token: string;
@@ -124,12 +141,18 @@ export async function claimTestTokens(params: {
     );
   }
 
-  return wallet.sendTransaction({
+  const hash = await wallet.sendTransaction({
     account: sender,
     chain: monadTestnet,
     to: token as `0x${string}`,
     data: encodeFunctionData({ abi: TEST_USDC_ABI, functionName: 'faucet' }),
   });
+
+  const receipt = await publicClient().waitForTransactionReceipt({ hash });
+  if (receipt.status !== 'success') {
+    throw new FundingError(`The faucet transaction failed (${hash}). Nothing was claimed.`);
+  }
+  return hash;
 }
 
 /** Human-readable countdown for faucet cooldown messages. */

@@ -36,6 +36,9 @@ vi.mock('@/lib/chain/collateral', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/chain/collateral')>()),
   COLLATERAL_ADDRESS: '0x2222222222222222222222222222222222222222',
 }));
+/** What the user's public address holds. Mutable, so a claim can be seen to change it. */
+const publicHoldings = { collateral: 0n, native: 0n };
+
 vi.mock('@/lib/wallet/collateral', async () => {
   const actual = await vi.importActual<typeof import('@/lib/wallet/collateral')>(
     '@/lib/wallet/collateral',
@@ -43,8 +46,15 @@ vi.mock('@/lib/wallet/collateral', async () => {
   return {
     ...actual,
     // Public-chain reads, stubbed so the suite never touches an RPC.
-    nativeBalance: vi.fn(async () => 0n),
-    publicBalance: vi.fn(async () => 0n),
+    nativeBalance: vi.fn(async () => publicHoldings.native),
+    publicBalance: vi.fn(async () => publicHoldings.collateral),
+    faucetCooldown: vi.fn(async () => 0n),
+    // Mints, the way the real one does — and only resolves once it has, which is the property the
+    // refresh below depends on.
+    claimTestTokens: vi.fn(async () => {
+      publicHoldings.collateral += 100_000_000n;
+      return '0xfaucet';
+    }),
   };
 });
 
@@ -91,6 +101,8 @@ function state(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  publicHoldings.collateral = 0n;
+  publicHoldings.native = 0n;
   session.status = 'authenticated';
   session.user = { id: 'u1', address: SESSION_ADDRESS, displayName: null };
   mockUseUnlink.mockReturnValue(state());
@@ -219,6 +231,37 @@ describe('Wallet — unlocked', () => {
 
     expect(screen.queryByText(/shielded address/i)).not.toBeInTheDocument();
     expect(screen.getByText(/nothing here to back up or lose/i)).toBeInTheDocument();
+  });
+
+  /**
+   * The claim landed and the screen still said $0.
+   *
+   * Two independent causes, both worth pinning. The faucet used to resolve on *broadcast*, so the
+   * refetch that follows it read the chain before the mint existed; and the invalidation named
+   * `['unlink', 'balances']`, a key that stopped existing when the shielded pool replaced the
+   * vendor — so nothing it targeted was ever refetched again, here or after a trade.
+   */
+  it('updates the public balance once a claim has landed (REGRESSION)', async () => {
+    publicHoldings.collateral = 0n;
+    // Gas, so the panel offers the button rather than the fund-me prompt.
+    publicHoldings.native = 10n ** 18n;
+    renderWithProviders(<Wallet />);
+    await screen.findByText('$1.5');
+
+    const { reconnectWallet } = await import('@/lib/wallet/reconnect');
+    (reconnectWallet as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      address: SESSION_ADDRESS,
+      kind: 'passkey',
+      // `signerWalletClient` builds a client from this; without it the click fails before it ever
+      // reaches the faucet, and the test would pass or fail for the wrong reason.
+      evmAccount: { address: SESSION_ADDRESS, type: 'local' },
+      signMessage: async () => '0x',
+      disconnect: vi.fn(),
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /get test collateral/i }));
+
+    await waitFor(() => expect(screen.getByText('$100')).toBeInTheDocument());
   });
 
   it('offers funding, withdrawal and recovery', async () => {

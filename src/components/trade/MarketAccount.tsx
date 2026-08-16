@@ -152,7 +152,7 @@ export function MarketAccount({
 
   /** Everything the two transfers touch, refreshed together so the panel can never disagree. */
   function invalidateMoney() {
-    void queryClient.invalidateQueries({ queryKey: ['unlink', 'balances'] });
+    void queryClient.invalidateQueries({ queryKey: ['pool'] });
     // `['execution', ...]`, which is where `useMarketAccountBalance` actually registers. This said
     // `['unlink', 'market-account']` and so matched nothing at all: after a top-up the market
     // figure was never refreshed and sat on its previous value — frequently zero, since the
