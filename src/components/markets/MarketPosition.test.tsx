@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, screen } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MarketPosition } from './MarketPosition';
 import { renderWithProviders, makeMarket, makeOutcome } from '@/test/render';
@@ -329,6 +329,48 @@ describe('MarketPosition — settlement', () => {
     expect(button).toBeEnabled();
     await userEvent.click(button);
     expect(claimMock.unlock).toHaveBeenCalledTimes(1);
+    expect(claimMock.claim).not.toHaveBeenCalled();
+  });
+
+  it('finishes the press that unlocked, rather than needing a second (REGRESSION)', async () => {
+    /*
+      The first press was spent unlocking and returned. The panel then looked exactly as it had —
+      button still there, winnings still uncollected — with nothing to say a second press was
+      needed. Reported as "I won and the claim section is still showing".
+    */
+    claimMock.needsUnlock = true;
+    forAccounts.mockResolvedValue([won()]);
+    const { client } = renderWithProviders(<MarketPosition market={market()} />);
+
+    await userEvent.click(await screen.findByRole('button', { name: /unlock to collect/i }));
+    expect(claimMock.unlock).toHaveBeenCalledTimes(1);
+
+    // Unlocking finished: the session now has a key, which is the render the queued press waits
+    // for. Driven through the query client rather than `rerender`, which would drop the providers.
+    claimMock.needsUnlock = false;
+    await act(async () => {
+      await client.invalidateQueries();
+    });
+
+    await waitFor(() => expect(claimMock.claim).toHaveBeenCalledTimes(1));
+  });
+
+  it('does not claim when unlocking happened on its own (negative)', async () => {
+    // Only a press that was spent unlocking may resume. An unlock triggered anywhere else must
+    // never move money by itself.
+    claimMock.needsUnlock = true;
+    forAccounts.mockResolvedValue([won()]);
+    const { client } = renderWithProviders(<MarketPosition market={market()} />);
+    await screen.findByRole('button', { name: /unlock to collect/i });
+
+    claimMock.needsUnlock = false;
+    await act(async () => {
+      await client.invalidateQueries();
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /collect winnings/i })).toBeEnabled(),
+    );
     expect(claimMock.claim).not.toHaveBeenCalled();
   });
 

@@ -181,10 +181,29 @@ function ClaimAction({ position }: { position: Position }) {
   const toast = useToast();
   const { claim, needsUnlock, unavailable, unlock } = useClaimPosition();
   const [claiming, setClaiming] = React.useState(false);
+  /**
+   * A press that was spent unlocking, waiting to become the collection it was meant to be.
+   *
+   * Unlocking cannot simply be followed by claiming in the same call: `claim` closes over an
+   * execution context that does not exist while the session is locked, and awaiting `unlock()`
+   * does not refresh that closure. So the intent is remembered and the effect below picks it up on
+   * the render where the context finally exists.
+   *
+   * Without this the first press unlocked, returned, and left the panel exactly as it was — button
+   * still there, winnings still uncollected, nothing to indicate a second press was needed. The
+   * label read "Unlock to collect", which is true and reads as one action.
+   */
+  const pressedThrough = React.useRef(false);
 
   async function collect() {
     if (needsUnlock) {
-      await unlock();
+      pressedThrough.current = true;
+      try {
+        await unlock();
+      } catch {
+        // A refused or dismissed unlock is a decision, not a queued claim.
+        pressedThrough.current = false;
+      }
       return;
     }
     setClaiming(true);
@@ -224,6 +243,23 @@ function ClaimAction({ position }: { position: Position }) {
       setClaiming(false);
     }
   }
+
+  /*
+    Finish the press that unlocked.
+
+    An effect because the thing being waited for is a *render* — the one where `useExecution` can
+    finally build a context — and that is not observable from inside the click handler. Guarded on
+    the ref rather than on `needsUnlock` alone, so unlocking for any other reason never claims
+    anything on its own.
+  */
+  React.useEffect(() => {
+    if (!pressedThrough.current || needsUnlock || unavailable || claiming) return;
+    pressedThrough.current = false;
+    void collect();
+    // `collect` is redefined every render and depending on it would re-run this on each one. The
+    // ref is the guard that matters; these are the conditions that let the queued press proceed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsUnlock, unavailable, claiming]);
 
   return (
     <div className="mt-2.5">
